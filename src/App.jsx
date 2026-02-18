@@ -1,284 +1,160 @@
+// src/App.jsx
 import React, { useState, Suspense } from "react";
-import { Canvas, useLoader } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, ContactShadows, Center, Html } from "@react-three/drei";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
-import { motion, AnimatePresence } from "framer-motion";
-import { FiHome, FiActivity, FiFileText, FiSettings, FiSearch, FiBell, FiUser, FiAlertTriangle, FiCheckCircle } from "react-icons/fi"; // Necesitas instalar react-icons
+import { FiHome, FiActivity, FiFileText, FiSettings, FiUser, FiSearch } from "react-icons/fi";
+// 👇 IMPORTANTE: Importamos tu nueva escena 3D
+import { CleanScene } from './CleanScene';
 
-// ==========================================
-// DATOS SIMULADOS DE INSPECCIÓN
-// ==========================================
-const inspectionData = [
-  { 
-    id: "aspa1", 
-    title: "Aspa 1 (Pala A)", 
-    status: "critical", 
-    anomalies: 3,
-    description: "Múltiples fisuras detectadas en el borde de ataque. Alta probabilidad de deslaminación interna.",
-    lastScan: "Hoy, 10:30 AM",
-    // HITBOX: Ajusta posición/rotación/escala para que cubra esta parte de TU modelo
-    hitbox: { position: [0, 8, 2.5], rotation: [0, 0, 0.5], scale: [1.5, 7, 1] } 
-  },
-  { 
-    id: "aspa2", 
-    title: "Aspa 2 (Pala B)", 
-    status: "healthy", 
-    anomalies: 0,
-    description: "Estructura íntegra. Desgaste superficial normal por erosión.",
-    lastScan: "Hoy, 10:35 AM",
-    hitbox: { position: [-6, 3, -2], rotation: [0, 0, -2.5], scale: [1.5, 7, 1] } 
-  },
-  { 
-    id: "aspa3", 
-    title: "Aspa 3 (Pala C)", 
-    status: "warning", 
-    anomalies: 1,
-    description: "Impacto menor detectado cerca de la punta. Requiere monitoreo.",
-    lastScan: "Hoy, 10:40 AM",
-    hitbox: { position: [6, 3, -2], rotation: [0, 0, 2.5], scale: [1.5, 7, 1] } 
-  },
-   { 
-    id: "torre", 
-    title: "Torre / Góndola", 
-    status: "healthy", 
-    anomalies: 0,
-    description: "Sin anomalías estructurales en la unión de bridas.",
-    lastScan: "Hoy, 10:45 AM",
-    hitbox: { position: [0, -2, 0], rotation: [0, 0, 0], scale: [2, 10, 2] } 
-  },
-];
+// --- Componente Reutilizable: Botón del Menú Lateral ---
+const SidebarItem = ({ icon, text, active }) => (
+  <div className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${active ? 'bg-orange-50 text-orange-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
+    {icon}
+    <span className="font-semibold text-sm">{text}</span>
+  </div>
+);
 
-// ==========================================
-// COMPONENTE: Hitbox Invisible
-// ==========================================
-// Esto es lo que el usuario realmente clickea, aunque no lo vea.
-function InvisibleHitbox({ data, onClick }) {
-    return (
-      <mesh 
-        position={data.hitbox.position} 
-        rotation={data.hitbox.rotation} 
-        scale={data.hitbox.scale}
-        onClick={() => onClick(data)}
-        onPointerOver={() => document.body.style.cursor = 'pointer'} 
-        onPointerOut={() => document.body.style.cursor = 'default'}
-        visible={false} // ¡El truco mágico! Es invisible pero interactivo.
-      >
-        {/* Usamos una cápsula como forma genérica para aspas/torres */}
-        <capsuleGeometry args={[1, 1, 16, 32]} />
-        <meshBasicMaterial color="red" transparent opacity={0.5} />
-      </mesh>
-    );
-}
-
-// ==========================================
-// COMPONENTE: Escena 3D Limpia
-// ==========================================
-function CleanScene({ onPartClick }) {
-  const geometry = useLoader(STLLoader, "/single_color.stl"); 
-
-  return (
-    <>
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[10, 15, 10]} intensity={1.5} castShadow />
-      {/* Entorno de estudio fotográfico luminoso */}
-      <Environment preset="studio" /> 
-      
-      <Suspense fallback={<Html center><span style={{color:'#64748b'}}>Cargando Modelo...</span></Html>}>
-        <Center>
-            <group>
-                {/* El Modelo STL Visual (Solo para ver, no interactúa) */}
-                <mesh geometry={geometry} scale={0.05} rotation={[-Math.PI / 2, 0, 0]}>
-                    {/* Material cerámico blanco/gris limpio */}
-                    <meshPhysicalMaterial color="#f1f5f9" metalness={0.1} roughness={0.5} clearcoat={0.5} />
-                </mesh>
-                
-                {/* Las Hitboxes Invisibles (Estas sí interactúan) */}
-                {inspectionData.map(part => (
-                    <InvisibleHitbox key={part.id} data={part} onClick={onPartClick} />
-                ))}
-            </group>
-        </Center>
-      </Suspense>
-      
-      <OrbitControls makeDefault minDistance={5} maxDistance={40} />
-      <ContactShadows position={[0, -6, 0]} opacity={0.4} scale={40} blur={2.5} color="#cbd5e1"/>
-    </>
-  );
-}
-
-
-// ==========================================
-// LAYOUT PRINCIPAL (Estilo Dashboard Luminoso)
-// ==========================================
 export default function App() {
   const [selectedPart, setSelectedPart] = useState(null);
 
-  // Estilos comunes para las "tarjetas" del dashboard
-  const cardStyle = {
-      background: '#FFFFFF',
-      borderRadius: '20px',
-      padding: '24px',
-      boxShadow: '0px 10px 30px rgba(0,0,0,0.05)', // Sombra suave estilo Apple
-      border: '1px solid #F1F5F9'
-  };
-
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#F3F5F9', fontFamily: "'DM Sans', sans-serif", color: '#1e293b' }}>
+    <div className="h-screen flex flex-col md:flex-row bg-[#F3F5F9] font-sans text-slate-800 overflow-hidden">
       
-      {/* --- SIDEBAR IZQUIERDA --- */}
-      <div style={{ width: '240px', padding: '30px', display: 'flex', flexDirection: 'column', background: '#FFFFFF', borderRight: '1px solid #F1F5F9' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '50px' }}>
-            <div style={{ width: '36px', height: '36px', background: '#FF5722', borderRadius: '10px' }}></div> {/* Placeholder logo */}
-            <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 800 }}>SkyGuardians</h2>
-        </div>
+      {/* ==========================================
+          1. BARRA LATERAL (Menú)
+      ========================================== */}
+      <div className="w-full md:w-[240px] p-4 md:p-8 flex md:flex-col items-center md:items-start justify-between md:justify-start bg-white border-b md:border-b-0 md:border-r border-slate-100 z-10 shrink-0">
+         <div className="flex items-center gap-3 md:mb-12">
+            <div className="w-8 h-8 bg-[#FF5722] rounded-lg shadow-sm shadow-orange-200"></div>
+            <h2 className="text-xl font-extrabold m-0 text-slate-800">SkyGuardians</h2>
+         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-            <SidebarItem icon={<FiHome />} text="Dashboard" active />
-            <SidebarItem icon={<FiActivity />} text="Inspecciones" />
-            <SidebarItem icon={<FiFileText />} text="Reportes" />
-            <SidebarItem icon={<FiSettings />} text="Configuración" />
-        </nav>
+         <nav className="hidden md:flex flex-col gap-2 w-full flex-1">
+            <SidebarItem icon={<FiHome size={20} />} text="Dashboard" active />
+            <SidebarItem icon={<FiActivity size={20} />} text="Inspecciones" />
+            <SidebarItem icon={<FiFileText size={20} />} text="Reportes" />
+            <SidebarItem icon={<FiSettings size={20} />} text="Configuración" />
+         </nav>
 
-        <div style={{ ...cardStyle, padding: '16px', background: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FiUser size={20} color="#64748b"/>
-            <div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>Ing. Pedro</p>
-                <small style={{ color: '#94a3b8' }}>Supervisor</small>
+         <div className="flex items-center gap-3 p-2 md:p-3 bg-slate-50 rounded-xl border border-slate-100 w-auto md:w-full">
+            <FiUser size={20} className="text-slate-400" />
+            <div className="hidden md:block">
+               <p className="m-0 font-bold text-sm text-slate-700">Ing. Pedro</p>
+               <p className="m-0 text-xs text-slate-400">Supervisor</p>
             </div>
-        </div>
+         </div>
       </div>
 
 
-      {/* --- CONTENIDO PRINCIPAL (DERECHA) --- */}
-      <div style={{ flex: 1, padding: '30px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        
-        {/* HEADER SUPERIOR */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+      {/* ==========================================
+          2. CONTENIDO PRINCIPAL (Dashboard)
+      ========================================== */}
+      <div className="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col">
+         
+         <header className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4 md:gap-0">
             <div>
-                <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800 }}>Inspección Activa: WTG-04</h1>
-                <p style={{ margin: '5px 0 0 0', color: '#64748b' }}>Parque Eólico La Ventosa, Oaxaca</p>
+               <h1 className="text-2xl md:text-3xl font-extrabold m-0 tracking-tight">WTG-04</h1>
+               <p className="text-sm text-slate-500 m-0 mt-1">Parque Eólico La Ventosa, Oaxaca</p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                <div style={{ background: '#FFFFFF', padding: '10px 15px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0px 5px 15px rgba(0,0,0,0.03)' }}>
-                    <FiSearch color="#94a3b8" />
-                    <input type="text" placeholder="Buscar número de serie..." style={{ border: 'none', outline: 'none', color: '#1e293b' }} />
-                </div>
-                <button style={{ background: '#FFFFFF', border: 'none', padding: '10px', borderRadius: '12px', cursor: 'pointer', boxShadow: '0px 5px 15px rgba(0,0,0,0.03)' }}><FiBell color="#64748b" size={20}/></button>
+            <div className="hidden md:flex items-center gap-4">
+               <div className="bg-white px-4 py-2 rounded-xl flex items-center gap-3 shadow-sm border border-slate-100">
+                  <FiSearch className="text-slate-400" />
+                  <input type="text" placeholder="Buscar aerogenerador..." className="border-none outline-none text-sm bg-transparent placeholder-slate-400" />
+               </div>
             </div>
-        </header>
+         </header>
 
-        {/* GRID DEL DASHBOARD */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px', flex: 1, minHeight: 0 }}>
+         {/* --- Cuadrícula de Tarjetas --- */}
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8 flex-1 min-h-0">
             
-            {/* Tarjeta Principal: VISOR 3D */}
-            <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between' }}>
-                    <h3 style={{ margin: 0 }}>Gemelo Digital 3D</h3>
-                    <span style={{ background: '#F1F5F9', padding: '5px 12px', borderRadius: '20px', fontSize: '0.8rem', color: '#64748b' }}>Interactivo</span>
-                </div>
-                <div style={{ flex: 1, position: 'relative' }}>
-                    <Canvas camera={{ position: [0, 5, 25], fov: 45 }}>
-                        <CleanScene onPartClick={setSelectedPart} />
-                    </Canvas>
-                    
-                    {!selectedPart && (
-                         <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.9)', padding: '10px 20px', borderRadius: '30px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', pointerEvents: 'none' }}>
-                            <small style={{ color: '#64748b', fontWeight: 600 }}>Haz clic en una parte del aerogenerador para ver detalles</small>
-                        </div>
-                    )}
-                </div>
+            {/* TARJETA IZQUIERDA: Visor 3D */}
+            <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden min-h-[400px] md:min-h-0">
+               <div className="p-4 md:p-5 border-b border-slate-100 flex justify-between items-center bg-white z-10">
+                  <h3 className="font-bold text-base m-0">Gemelo Digital 3D</h3>
+                  <span className="bg-slate-50 border border-slate-200 px-3 py-1 rounded-full text-xs font-semibold text-slate-500">Interactivo</span>
+               </div>
+               
+               <div className="flex-1 relative w-full h-full bg-slate-50/50">
+                  {/* AQUÍ VA EL CANVAS DE THREE.JS */}
+                  <Canvas camera={{ position: [0, 5, 25], fov: 50 }}>
+                     <ambientLight intensity={0.5} />
+                     <directionalLight position={[10, 10, 5]} intensity={1.5} castShadow />
+                     {/* Entorno de estudio fotográfico */}
+                     <Environment preset="city" />
+                     
+                     <Suspense fallback={<Html center><span className="text-slate-500 font-semibold">Cargando Modelo...</span></Html>}>
+                        {/* 👇 Center mantiene el modelo centrado */}
+                        <Center>
+                           {/* 👇 Aquí usamos tu nuevo componente */}
+                           <CleanScene onPartClick={setSelectedPart} />
+                        </Center>
+                     </Suspense>
+
+                     {/* 👇 Controles para Zoom, Rotar y Panear */}
+                     <OrbitControls makeDefault minDistance={5} maxDistance={50} />
+                     {/* Sombra de contacto en el suelo */}
+                     <ContactShadows position={[0, -4.5, 0]} opacity={0.4} scale={40} blur={2} far={4.5} />
+                  </Canvas>
+
+                  {!selectedPart && (
+                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md px-5 py-2 rounded-full shadow-lg pointer-events-none border border-slate-100">
+                        <span className="text-xs font-bold text-slate-500">Toca una pieza del modelo para ver detalles</span>
+                     </div>
+                  )}
+               </div>
             </div>
 
-            {/* Columna Derecha: RESULTADOS DINÁMICOS */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                
-                {/* Tarjeta de Resumen General */}
-                <div style={cardStyle}>
-                    <h3 style={{ margin: '0 0 20px 0' }}>Estado General</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
-                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <FiAlertTriangle size={28} color="#EF4444" />
-                        </div>
+            {/* TARJETA DERECHA: Panel de Información */}
+            <div className="col-span-1 flex flex-col gap-5">
+               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                  <h3 className="font-bold text-base mb-4">Estado General</h3>
+                  <div className="flex items-center gap-3 mb-2">
+                     <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+                     <span className="text-sm font-semibold text-slate-700">Operativo</span>
+                  </div>
+                  <p className="text-xs text-slate-400">Sincronizado hace 2 min</p>
+               </div>
+
+               {/* Tarjeta Dinámica: Detalles de la Pieza */}
+               {selectedPart ? (
+                  <div className="bg-slate-800 p-6 rounded-2xl shadow-xl text-white transition-all duration-300 flex-1 flex flex-col">
+                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <h2 style={{ margin: 0, fontSize: '2rem', fontWeight: 800, color: '#EF4444' }}>3 Críticas</h2>
-                            <p style={{ margin: 0, color: '#64748b' }}>Anomalías detectadas hoy</p>
+                           <small className="text-slate-400 uppercase tracking-wider font-bold text-xs">Pieza Seleccionada</small>
+                           <h3 className="font-bold text-xl text-orange-400 m-0">{selectedPart.title}</h3>
                         </div>
-                    </div>
-                    <button style={{ width: '100%', padding: '15px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>Ver Informe Completo</button>
-                </div>
-
-                {/* Tarjeta de Detalle de Pieza (Animada) */}
-                <AnimatePresence mode="wait">
-                    {selectedPart ? (
-                        <motion.div 
-                            key={selectedPart.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.3 }}
-                            style={{ ...cardStyle, flex: 1, display: 'flex', flexDirection: 'column' }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px' }}>
-                                <div>
-                                    <small style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>Pieza Seleccionada</small>
-                                    <h3 style={{ margin: '5px 0 0 0', fontSize: '1.5rem' }}>{selectedPart.title}</h3>
-                                </div>
-                                <StatusBadge status={selectedPart.status} />
-                            </div>
-                            
-                            <p style={{ lineHeight: '1.6', color: '#475569', flex: 1 }}>{selectedPart.description}</p>
-                            
-                            <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #F1F5F9' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '0.9rem' }}>
-                                    <span style={{ color: '#94a3b8' }}>Último escaneo:</span>
-                                    <span style={{ fontWeight: 600 }}>{selectedPart.lastScan}</span>
-                                </div>
-                                <button style={{ width: '100%', padding: '12px', background: '#F1F5F9', color: '#1e293b', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                                    Ver Evidencia (Video/Foto)
-                                </button>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        // Estado vacío si no hay nada seleccionado
-                        <motion.div 
-                             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                             style={{ ...cardStyle, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', textAlign: 'center', color: '#94a3b8' }}>
-                            <FiSearch size={40} style={{ marginBottom: '15px', opacity: 0.5 }}/>
-                            <p>Selecciona una parte en el modelo 3D para ver sus detalles.</p>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
+                        {/* Badge de Estado */}
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold ${selectedPart.status === 'critical' ? 'bg-red-500/20 text-red-400' : selectedPart.status === 'warning' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                           {selectedPart.status === 'critical' ? 'Crítico' : selectedPart.status === 'warning' ? 'Alerta' : 'Óptimo'}
+                        </div>
+                     </div>
+                     
+                     <p className="text-sm text-slate-300 mb-6 leading-relaxed flex-1">{selectedPart.description}</p>
+                     
+                     <div className="space-y-3 mt-auto">
+                        <div className="bg-slate-700/50 p-3 rounded-xl flex justify-between items-center">
+                           <span className="text-xs text-slate-300">Anomalías Detectadas</span>
+                           <span className="text-sm font-bold">{selectedPart.anomalies}</span>
+                        </div>
+                        <div className="bg-slate-700/50 p-3 rounded-xl flex justify-between items-center border-l-4 border-orange-500">
+                           <span className="text-xs text-slate-300">Último Escaneo</span>
+                           <span className="text-sm font-bold text-orange-300">{selectedPart.lastScan}</span>
+                        </div>
+                     </div>
+                     
+                     <button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 transition-colors text-white text-sm font-bold py-3 rounded-xl shadow-lg shadow-orange-500/30 cursor-pointer">
+                        Ver Evidencia en Video
+                     </button>
+                  </div>
+               ) : (
+                  <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-8 rounded-2xl flex flex-col items-center justify-center text-center text-slate-400 flex-1 min-h-[250px] transition-all duration-300 hover:bg-slate-100">
+                     <FiActivity size={32} className="mb-4 opacity-40" />
+                     <p className="text-sm font-medium">Selecciona una pieza en el modelo 3D para ver su reporte detallado.</p>
+                  </div>
+               )}
             </div>
-        </div>
-
+         </div>
       </div>
     </div>
   );
-}
-
-// --- Componentes Auxiliares para el UI ---
-
-function SidebarItem({ icon, text, active }) {
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '12px', background: active ? '#FF5722' : 'transparent', color: active ? 'white' : '#64748b', cursor: 'pointer', fontWeight: 600, transition: '0.2s' }}>
-            {icon}
-            <span>{text}</span>
-        </div>
-    )
-}
-
-function StatusBadge({ status }) {
-    const config = {
-        critical: { color: '#EF4444', bg: '#FEF2F2', text: 'Crítico', icon: <FiAlertTriangle /> },
-        warning: { color: '#F59E0B', bg: '#FFFBEB', text: 'Alerta', icon: <FiAlertTriangle /> },
-        healthy: { color: '#10B981', bg: '#ECFDF5', text: 'Óptimo', icon: <FiCheckCircle /> },
-    };
-    const current = config[status];
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', background: current.bg, color: current.color, fontWeight: 700, fontSize: '0.85rem' }}>
-            {current.icon}
-            {current.text}
-        </div>
-    )
 }
